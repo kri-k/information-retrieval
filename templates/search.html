@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Результаты поиска</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+<link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet" type="text/css" media="all" />
+
+<link rel="stylesheet" media="screen" href="//fontlibrary.org/face/segment7" type="text/css"/>
+<link href='//fonts.googleapis.com/css?family=Philosopher:400,400italic,700,700italic' rel='stylesheet' type='text/css'>
+<link href='//fonts.googleapis.com/css?family=Open+Sans:400,300,600,700,800' rel='stylesheet' type='text/css'><!--web font-->
+
+<style type="text/css">
+body {  
+    background: url({{ url_for('static', filename='images/bg_50.jpg') }})no-repeat center 0px;
+    background-attachment:fixed;
+    background-size: cover;  
+    font-family: 'Open Sans', sans-serif;
+}
+</style>
+
+<style>
+ul.btn_horiz{
+    margin: 3px; 
+    padding: 3px; 
+    }
+ul.btn_horiz li{
+    display: inline;  
+    margin-right: 3px;  
+    border: 1px solid #555;  
+    padding: 5px;  
+    }
+</style>
+
+</head>
+<body>
+    <!-- main -->
+    <div style="padding: 0em 0 0; margin-top: 0em;">
+        <div class="main-row" style="width: 30%; margin-right: 5em">
+            <div class="wthree-sub" style="padding: 0em 0 0; margin-top: -1em;">
+                <form action="/search" method="get">
+                    <input type="text" name="text" value="{{ txt }}" placeholder="Search Wikipedia..." required="">
+                    <button type="submit" class="btn btn-default" aria-label="Left Align" >
+                        <img src="{{ url_for('static', filename='images/i2.png') }}" alt=""/>
+                    </button>
+                </form>  
+            </div>
+        </div>
+    </div>
+
+    <div class="main" style="margin-left: 5em; margin-top: -5em">
+        {% if txt %}
+            <h2>Запрос: "{{ txt }}"</h2>
+            <h2>{{ time }}c</h2> 
+            <h2>_______________________________________________</h2>
+            <br><br>
+        {% endif %}
+
+        {% if error %}
+            <h2>{{ error }}, Время выполнения: {{ time }}c</h2>
+        {% else %}
+            <ol type="1">
+            {% for val in result %}
+                <li><a href="https://ru.wikipedia.org/wiki/{{ val }}" color="black"> {{ val.replace('_', ' ') }} </a> </li>
+                <h6><a href="./archive/{{ val }}">Посмотреть сохраненный текст</a></h6>
+                <li>----</li>
+            {% endfor %}
+            </ol>
+        {% endif %}
+
+        {% if btn %}
+            <ul class="btn_horiz">
+            {% for i in btn %}
+                <li><a href="{{ i[1] }}"> {{ i[0] }} </a></li>
+            {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+    <!-- //main -->   
+    <script src="{{ url_for('static', filename='js/jquery-1.12.3.min.js') }}"></script> 
+</body>
+</html>

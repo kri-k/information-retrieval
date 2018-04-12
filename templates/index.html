@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Boolean Search</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<!-- Custom Theme files -->
+<link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet" type="text/css" media="all" />
+<!-- //Custom Theme files -->
+<!-- web font -->
+<link rel="stylesheet" media="screen" href="//fontlibrary.org/face/segment7" type="text/css"/>
+<link href='//fonts.googleapis.com/css?family=Philosopher:400,400italic,700,700italic' rel='stylesheet' type='text/css'>
+<link href='//fonts.googleapis.com/css?family=Open+Sans:400,300,600,700,800' rel='stylesheet' type='text/css'><!--web font-->
+<!-- //web font -->
+</head>
+<body>
+    <!-- main -->
+    <div class="main">
+        <h1>Wikipedia Boolean Search</h1>
+        <div class="main-row">
+            <p>Кривов Кирилл, гр. 80-108М. Лабораторная работа #3 по информационному поиску.</p>
+            <div class="wthree-sub">
+                <form action="/search" method="get">
+                    <input type="text" name="text" placeholder="Search Wikipedia..." required="">
+                    <button type="submit" class="btn btn-default" aria-label="Left Align">
+                        <img src="{{ url_for('static', filename='images/i2.png') }}" alt=""/>
+                    </button>
+                </form>  
+            </div>  
+        </div>
+    </div>  
+    <!-- //main -->  
+
+    <script src="{{ url_for('static', filename='js/jquery-1.12.3.min.js') }}"></script>  
+</body>
+</html>
