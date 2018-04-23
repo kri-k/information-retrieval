@@ -102,7 +102,7 @@ public:
     AndIterator(IndexIterator *first, IndexIterator *second) {
         a = first;
         b = second;
-        while (!a->end() && !b->end() && a->get() != b->get()) {
+        while (!end() && a->get() != b->get()) {
             if (a->get() < b->get()) {
                 a->next();
             } else {
@@ -117,13 +117,17 @@ public:
     }
 
     void next() override {
+        if (end()) {
+            return;
+        }
+
         if (a->get() < b->get()) {
             a->next();
         } else {
             b->next();
         }
 
-        while (a->get() != b->get() && !a->end() && !b->end()) {
+        while (!end() && a->get() != b->get()) {
             if (a->get() < b->get()) {
                 a->next();
             } else {
