@@ -2,6 +2,7 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <cassert>
 #include "index_iterator.h"
 
 
@@ -30,6 +31,30 @@ void clearVector(vector<IndexIterator*> &v) {
         delete v[i];
     }
     v.clear();
+}
+
+
+IndexIterator* getQuoteIterator(stringstream &ss) {
+    string s;
+    vector<TID> terms;
+    unsigned int dist = 0;
+    while (ss >> s) {
+        if (s == "\"") {
+            break;
+        }
+
+        if (s[0] == '/') {
+            dist = stoi(s.substr(1));
+        } else {
+            terms.push_back(stoi(s));
+        }
+    }
+    assert(terms.size() > 0);
+    if (terms.size() == 1) {
+        return new SimpleIterator(terms[0]);
+    }
+    if (dist < terms.size()) dist = terms.size();
+    return new QuoteIterator(terms, dist);
 }
 
 
@@ -70,6 +95,8 @@ IndexIterator* getIterator(const string &expr) {
             stack.pop_back();
 
             stack.push_back(new OrIterator(a, b));
+        } else if (s == "\"") {
+            stack.push_back(getQuoteIterator(ss));
         } else {
             stack.push_back(new SimpleIterator(stoi(s)));
         }
@@ -124,7 +151,7 @@ int main() {
             fin.read(BUFFER, sizeof(char) * length);
             BUFFER[length] = '\0';
 
-        	fin.close();
+            fin.close();
 
             string expr = string(BUFFER);
 
@@ -154,27 +181,21 @@ int main() {
 
             cout << "ID = " << id << endl;
 
-        	fin.close();
+            fin.close();
 
             if (id < requests.size()) {
                 sendNextDocId(requests[id]);
             } else {
                 ofstream fout(RESPONSE_PIPE, ios::binary);
-
                 fout.write((char*)&BAD, sizeof(char));
-
                 fout.close();
-
             }
         } else {
             cerr << "Get bad command '" << cmd << "' with code " << ((int)cmd) << endl;
-
-        	fin.close();
+            fin.close();
 
             ofstream fout(RESPONSE_PIPE, ios::binary);
-
             fout.write((char*)&BAD, sizeof(char));
-
             fout.close();
         }
     }

@@ -67,9 +67,7 @@ def do_request(s):
         data = struct.pack('=cI{}s'.format(len(s)), NEW_REQ, len(s), s)
 
     fout = open(REQUEST_PIPE, 'wb')
-
     fout.write(data)
-
     fout.close()
 
     return True

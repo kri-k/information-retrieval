@@ -28,6 +28,7 @@ with open(DOC_TITLES_FILE, 'r', encoding='utf-8') as fin:
     ID_TO_DOC_TITLE = [line for line in fin]
     print('LOADED DOC TITLES')
 
+
 with open(TERMS_FILE, 'r', encoding='utf-8') as fin:
     index = 0
     for line in fin:
@@ -61,9 +62,20 @@ def normalize(text, id=True):
             # i = remove_accents(morph.parse(i.strip('\n'))[0].normal_form).lower()
             i = remove_accents(i).lower();
             if id:
-                if i not in TERM_TO_ID:
-                    return None
-                res.append(str(TERM_TO_ID[i]))
+                if '"' == i[0] == i[-1]:
+                    l = []
+                    for j in i.split():
+                        if j[0] not in '"/':
+                            if j not in TERM_TO_ID:
+                                return None
+                            l.append(str(TERM_TO_ID[j]))
+                        else:
+                            l.append(j)
+                    res.append(' '.join(l))
+                else:
+                    if i not in TERM_TO_ID:
+                        return None
+                    res.append(str(TERM_TO_ID[i]))
             else:
                 res.append(i)
     return res

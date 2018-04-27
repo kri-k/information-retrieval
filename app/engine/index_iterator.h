@@ -1,5 +1,8 @@
 #pragma once
 
+#include <set>
+#include <map>
+#include <cassert>
 #include "index_loader.h"
 
 
@@ -20,7 +23,7 @@ public:
 
 
 class SimpleIterator : public IndexIterator {
-public:
+private:
     unsigned int pos;
     IndexRecord rec;
 public:
@@ -36,8 +39,7 @@ public:
     }
 
     bool end() override {
-        if (pos >= rec.length) return true;
-        return false;
+        return pos >= rec.length;
     }
 
     TID get() override {
@@ -203,5 +205,120 @@ public:
 
     unsigned int len() override {
         return min(a->len() + b->len(), MAX_DOC_ID + 1);
+    }
+};
+
+
+class QuoteIterator : public IndexIterator {
+private:
+    vector<TID> id;
+    set<TID> uniqTerms;
+    unsigned int dist;
+    IndexIterator *docIter;
+public:
+    QuoteIterator(vector<TID> terms, unsigned int distance) {
+        assert(terms.size() >= 2);
+
+        id = terms;
+        dist = distance;
+
+        uniqTerms = set<TID>(terms.begin(), terms.end());
+        auto curId = uniqTerms.begin();
+        docIter = new SimpleIterator(*curId);
+        ++curId;
+        while (curId != uniqTerms.end()) {
+            docIter = new AndIterator(docIter, new SimpleIterator(*curId));
+            ++curId;
+        }
+
+        while (!docIter->end()) {
+            if (ok(docIter->get())) {
+                break;
+            }
+            docIter->next();
+        }
+    }
+
+    ~QuoteIterator() {
+        if (docIter) delete docIter;
+    }
+
+    void next() override {
+        docIter->next();
+        while (!docIter->end()) {
+            if (ok(docIter->get())) {
+                break;
+            }
+            docIter->next();
+        }
+    }
+
+    bool end() override {
+        return docIter->end();
+    }
+
+    TID get() override {
+        if (docIter->end()) {
+            cerr << "ERROR: QuoteIterator go over bound" << endl;
+        }
+        return docIter->get();
+    }
+
+    unsigned int len() override {
+        return docIter->len();
+    }
+
+    bool ok(TID docId) {
+        bool result = false;
+
+        auto allPositions = INDEX.getPositions(docId);
+        map<TID, TermPositions> pos;
+
+        for (auto &p : allPositions.terms) {
+            if (uniqTerms.count(p.termId)) {
+                pos.emplace(p.termId, p);
+            }
+        }
+
+        vector<unsigned int> offset(id.size(), 0);
+        vector<TermPositions> termPositions;
+        termPositions.reserve(id.size());
+
+        for (TID i : id) {
+            termPositions.push_back(pos[i]);
+        }
+
+        while (true) {
+            bool end = false;
+            for (int i = 1; i < id.size(); i++) {
+                while (
+                    offset[i] < termPositions[i].length &&
+                    termPositions[i - 1][offset[i - 1]] >= termPositions[i][offset[i]])
+                {
+                    offset[i]++;
+                }
+
+                if (offset[i] >= termPositions[i].length) {
+                    end = true;
+                    break;
+                }
+            }
+
+            if (end) break;
+            if (termPositions.back()[offset.back()] -
+                termPositions.front()[offset.front()] + 1 <= dist)
+            {
+                result = true;
+                break;
+            }
+
+            offset[0]++;
+            if (offset[0] >= termPositions[0].length) {
+                break;
+            }
+        }
+
+        allPositions.clear();
+        return result;
     }
 };
