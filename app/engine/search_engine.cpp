@@ -8,8 +8,8 @@
 using namespace std;
 
 
-const char* REQUEST_PIPE = "./pipe_A";
-const char* RESPONSE_PIPE = "./pipe_B";
+const char* REQUEST_PIPE = "../pipe_A";
+const char* RESPONSE_PIPE = "../pipe_B";
 
 const char NEW_REQ = 0;
 const char EXIST_REQ = 1;

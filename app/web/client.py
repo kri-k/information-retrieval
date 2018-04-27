@@ -4,8 +4,8 @@ import struct
 import input_parser
 
 
-REQUEST_PIPE = './pipe_A'
-RESPONSE_PIPE = './pipe_B'
+REQUEST_PIPE = '../pipe_A'
+RESPONSE_PIPE = '../pipe_B'
 
 
 NEW_REQ = bytes(chr(0), encoding='ascii')
