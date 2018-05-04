@@ -8,6 +8,9 @@
 #include <unordered_map>
 #include <algorithm>
 #include <ctime>
+#include <cassert>
+
+#include "../codec.h"
 
 
 time_t START_TIME;
@@ -26,6 +29,11 @@ using namespace std;
 namespace fs = std::experimental::filesystem;
 
 using TID = unsigned int;
+
+
+vector<int8_t> compressedDataBuffer_4bit;
+vector<int8_t> compressedDataBuffer_8bit;
+vector<int16_t> compressedDataBuffer_16bit;
 
 
 void systemNoReturn(const char* s) {
@@ -115,8 +123,8 @@ void writeRecords(vector<pair<TID, TID>> &records, const string &outputFile) {
 }
 
 
-void writePositions(TID docId, const map<TID, vector<unsigned int>> &positions, const string &fileName) {
-    ofstream fout(fileName, ios_base::app);
+void writePositions(TID docId, map<TID, vector<unsigned int>> &positions, const string &fileName) {
+    ofstream fout(fileName, ios_base::binary | ios_base::app);
     fout.write((char*)&docId, sizeof(TID));
 
     unsigned int n;
@@ -125,12 +133,35 @@ void writePositions(TID docId, const map<TID, vector<unsigned int>> &positions, 
     fout.write((char*)&n, sizeof(unsigned int));
 
     for (auto &i : positions) {
-        n = i.first;
-        fout.write((char*)&n, sizeof(unsigned int));
-        n = i.second.size();
-        fout.write((char*)&n, sizeof(unsigned int));
-        for (auto j : i.second) {
-            fout.write((char*)&j, sizeof(unsigned int));
+        fout.write((char*)&i.first, sizeof(TID));
+
+        auto &v = i.second;
+
+        unsigned int prev = v[0];
+        for (unsigned int j = 1; j < v.size(); j++) {
+            v[j] = v[j] - prev;
+            prev += v[j];
+        }
+
+        compressedDataBuffer_4bit.clear();
+        unsigned int n4 = VHB<unsigned int, int8_t>::encode(v, compressedDataBuffer_4bit);
+        assert(n4 <= (1 << (sizeof(unsigned int) * 8 - 2)));
+        n4 |= 1 << (sizeof(unsigned int) * 8 - 1);
+
+        compressedDataBuffer_8bit.clear();
+        unsigned int n8 = VB<unsigned int, int8_t>::encode(v, compressedDataBuffer_8bit);
+        assert(n8 <= (1 << (sizeof(unsigned int) * 8 - 2)));
+
+        if (compressedDataBuffer_8bit.size() <= compressedDataBuffer_4bit.size()) {
+            fout.write((char*)&n8, sizeof(unsigned int));
+            fout.write(
+                (char*)compressedDataBuffer_8bit.data(), 
+                compressedDataBuffer_8bit.size() * sizeof(int8_t));
+        } else {
+            fout.write((char*)&n4, sizeof(unsigned int));
+            fout.write(
+                (char*)compressedDataBuffer_4bit.data(), 
+                compressedDataBuffer_4bit.size() * sizeof(int8_t));
         }
     }
     fout.close();
@@ -221,18 +252,38 @@ void writeVector(const vector<string> &v, const string &outputFile) {
 void writeIndex(vector<pair<TID, vector<TID>>> &records, const string &outputFile) {
     ofstream fout(outputFile, ios_base::binary);
 
-    TID n = records.size();
-
+    unsigned int n = records.size();
     fout.write((char*)&n, sizeof(TID));
+
     for (size_t i = 0; i < records.size(); i++) {
-        n = records[i].first;
-        fout.write((char*)&n, sizeof(TID));
+        fout.write((char*)&records[i].first, sizeof(TID));
 
-        n = records[i].second.size();
-        fout.write((char*)&n, sizeof(TID));
+        auto &v = records[i].second;
+        TID prev = v[0];
+        for (unsigned int j = 1; j < v.size(); j++) {
+            v[j] = v[j] - prev;
+            prev += v[j];
+        }
 
-        for (auto j : records[i].second) {
-            fout.write((char*)&j, sizeof(TID));
+        compressedDataBuffer_4bit.clear();
+        unsigned int n4 = VHB<TID, int8_t>::encode(v, compressedDataBuffer_4bit);
+        assert(n4 <= (1 << (sizeof(unsigned int) * 8 - 2)));
+        n4 |= 1 << (sizeof(unsigned int) * 8 - 1);
+
+        compressedDataBuffer_8bit.clear();
+        unsigned int n8 = VB<TID, int8_t>::encode(v, compressedDataBuffer_8bit);
+        assert(n8 <= (1 << (sizeof(unsigned int) * 8 - 2)));
+
+        if (compressedDataBuffer_8bit.size() <= compressedDataBuffer_4bit.size()) {
+            fout.write((char*)&n8, sizeof(unsigned int));
+            fout.write(
+                (char*)compressedDataBuffer_8bit.data(), 
+                compressedDataBuffer_8bit.size() * sizeof(int8_t));
+        } else {
+            fout.write((char*)&n4, sizeof(unsigned int));
+            fout.write(
+                (char*)compressedDataBuffer_4bit.data(), 
+                compressedDataBuffer_4bit.size() * sizeof(int8_t));
         }
     }
 

@@ -7,14 +7,14 @@
 #include <set>
 #include <vector>
 #include <iostream>
-
+#include "compressed_data_stream.h"
 
 using namespace std;
 
 using TID = unsigned int;
 
 
-const string WORK_DIR("/home/forlabs/wiki_index/");
+const string WORK_DIR("/home/forlabs/wiki_index_compress/");
 const unsigned int MAX_DOC_ID = 545386;
 
 const size_t MAX_INDEX_FILES_NUM = 100;
@@ -25,56 +25,70 @@ const size_t DOCS_PER_FILE = 10;
 
 
 struct IndexRecord {
-    TID *docId;
-    unsigned int length;
+    CompressedDataStream<TID> *stream;
 
     IndexRecord() {
-        docId = nullptr;
-        length = 0;
+        stream = nullptr;
     }
 
     IndexRecord(ifstream &fin) {
-        fin.read((char*)&length, sizeof(unsigned int));
+        unsigned int bitCnt;
+        fin.read((char*)&bitCnt, sizeof(unsigned int));
 
-        docId = new TID[length];
+        int codecType = bitCnt >> (sizeof(unsigned int) * 8 - 1);
+        bitCnt &= (1 << (sizeof(unsigned int) * 8 - 1)) - 1;
 
-        for (size_t i = 0; i < length; i++) {
-            fin.read((char*)&docId[i], sizeof(TID));
+        unsigned int size = (bitCnt + sizeof(int8_t) * 8 - 1) / (sizeof(int8_t) * 8);
+
+        int8_t *data = new int8_t[size];
+        fin.read((char*)data, sizeof(int8_t) * size);
+
+        if (codecType == 0) {
+            stream = new VBDataStream<TID>(data, size);
+        } else {
+            stream = new VHBDataStream<TID>(data, size);
         }
     }
 
     void clear() {
-        if (docId) {
-            delete[] docId;
+        if (stream) {
+            stream->clear();
+            delete stream;
+            stream = nullptr;
         }
-        length = 0;
     }
 };
 
 
 struct TermPositions {
     TID termId;
-    unsigned int length;
-    unsigned int *positions;
+    CompressedDataStream<unsigned int> *stream;
+    unsigned int curPos;
 
-    TermPositions() {
-        length = 0;
-        positions = nullptr;
+    TermPositions() : curPos(0), stream(nullptr) {}
+
+    TermPositions(TID termId, CompressedDataStream<unsigned int> *stream) :
+        termId(termId), stream(stream), curPos(0) {}
+
+    unsigned int get() {
+        return curPos + stream->get();
     }
 
-    TermPositions(TID termId, unsigned int length, unsigned int *positions) :
-        termId(termId), length(length), positions(positions) {}
+    void next() {
+        curPos += stream->get();
+        stream->next();
+    }
 
-    TID operator[](unsigned int index) const {
-        return positions[index];
+    bool end() {
+        return stream->end();
     }
 
     void clear() {
-        if (positions) {
-            delete[] positions;
-            positions = nullptr;
+        if (stream) {
+            stream->clear();
+            delete stream;
+            stream = nullptr;
         }
-        length = 0;
     }
 };
 
@@ -89,8 +103,10 @@ struct DocTermPositions {
         docId = id;
         TID termId;
         unsigned int termNum;
-        unsigned int len;
-        unsigned int n;
+        unsigned int bitCnt;
+        unsigned int size;
+        int codecType;
+        CompressedDataStream<unsigned int> *stream;
 
         fin.read((char*)&termNum, sizeof(unsigned int));
 
@@ -98,15 +114,23 @@ struct DocTermPositions {
 
         for (int i = 0; i < termNum; i++) {
             fin.read((char*)&termId, sizeof(TID));
-            fin.read((char*)&n, sizeof(unsigned int));
-            unsigned int *arrPos = new unsigned int[n];
-            for (int j = 0; j < n; j++) {
-                unsigned int pos;
-                fin.read((char*)&pos, sizeof(unsigned int));
-                arrPos[j] = pos;
+
+            fin.read((char*)&bitCnt, sizeof(unsigned int));
+
+            codecType = bitCnt >> (sizeof(unsigned int) * 8 - 1);
+            bitCnt &= (1 << (sizeof(unsigned int) * 8 - 1)) - 1;
+            size = (bitCnt + sizeof(int8_t) * 8 - 1) / (sizeof(int8_t) * 8);
+
+            int8_t *data = new int8_t[size];
+            fin.read((char*)data, sizeof(int8_t) * size);
+
+            if (codecType == 0) {
+                stream = new VBDataStream<unsigned int>(data, size);
+            } else {
+                stream = new VHBDataStream<unsigned int>(data, size);
             }
 
-            terms.emplace_back(termId, n, arrPos);
+            terms.emplace_back(termId, stream);
         }
     }
 
@@ -120,16 +144,21 @@ struct DocTermPositions {
         TID termId;
         unsigned int termNum;
         unsigned int len;
-        unsigned int n;
-        unsigned int pos;
+        unsigned int bitCnt;
+        unsigned int size;
+        int8_t pos;
 
         fin.read((char*)&termNum, sizeof(unsigned int));
 
         for (int i = 0; i < termNum; i++) {
             fin.read((char*)&termId, sizeof(TID));
-            fin.read((char*)&n, sizeof(unsigned int));
-            for (int j = 0; j < n; j++) {
-                fin.read((char*)&pos, sizeof(unsigned int));
+            fin.read((char*)&bitCnt, sizeof(unsigned int));
+
+            bitCnt &= (1 << (sizeof(unsigned int) * 8 - 1)) - 1;
+            size = (bitCnt + sizeof(int8_t) * 8 - 1) / (sizeof(int8_t) * 8);
+
+            for (int j = 0; j < size; j++) {
+                fin.read((char*)&pos, sizeof(int8_t));
             }
         }
     }
@@ -152,6 +181,7 @@ private:
         TID termId;
         for (unsigned int i = 0; i < n; i++) {
             fin.read((char*)&termId, sizeof(TID));
+
             IndexRecord rec(fin);
 
             if (records.find(termId) != records.end()) {
@@ -179,7 +209,6 @@ public:
             i.second.clear();
         }
     }
-
 
     IndexRecord& get(TID termId) {
         usageCnt[termId]++;
@@ -210,7 +239,6 @@ public:
 
         for (int i = 0; i < DOCS_PER_FILE; i++) {
             fin.read((char*)&curId, sizeof(TID));
-
             if (curId == docId) {
                 DocTermPositions res(docId, fin);
                 fin.close();

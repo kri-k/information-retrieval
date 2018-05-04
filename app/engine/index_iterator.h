@@ -24,30 +24,35 @@ public:
 
 class SimpleIterator : public IndexIterator {
 private:
-    unsigned int pos;
+    TID id;
+    TID curDocId;
     IndexRecord rec;
 public:
     SimpleIterator(TID termId) {
         rec = INDEX.get(termId);
-        pos = 0;
+        id = termId;
+        curDocId = 0;
     }
 
-    ~SimpleIterator() {}
+    ~SimpleIterator() {
+        INDEX.unget(id);
+    }
 
     void next() override {
-        pos++;
+        curDocId += rec.stream->get();
+        rec.stream->next();
     }
 
     bool end() override {
-        return pos >= rec.length;
+        return rec.stream->end();
     }
 
     TID get() override {
-        return rec.docId[pos];
+        return curDocId + rec.stream->get();
     }
 
     unsigned int len() override {
-        return rec.length;
+        return 0;
     }
 };
 
@@ -280,7 +285,6 @@ public:
             }
         }
 
-        vector<unsigned int> offset(id.size(), 0);
         vector<TermPositions> termPositions;
         termPositions.reserve(id.size());
 
@@ -288,32 +292,33 @@ public:
             termPositions.push_back(pos[i]);
         }
 
+
         while (true) {
             bool end = false;
             for (int i = 1; i < id.size(); i++) {
                 while (
-                    offset[i] < termPositions[i].length &&
-                    termPositions[i - 1][offset[i - 1]] >= termPositions[i][offset[i]])
+                    !termPositions[i].end() &&
+                    termPositions[i - 1].get() >= termPositions[i].get())
                 {
-                    offset[i]++;
+                    termPositions[i].next();
                 }
 
-                if (offset[i] >= termPositions[i].length) {
+                if (termPositions[i].end()) {
                     end = true;
                     break;
                 }
             }
 
             if (end) break;
-            if (termPositions.back()[offset.back()] -
-                termPositions.front()[offset.front()] + 1 <= dist)
+            if (termPositions.back().get() -
+                termPositions.front().get() + 1 <= dist)
             {
                 result = true;
                 break;
             }
 
-            offset[0]++;
-            if (offset[0] >= termPositions[0].length) {
+            termPositions[0].next();
+            if (termPositions[0].end()) {
                 break;
             }
         }
