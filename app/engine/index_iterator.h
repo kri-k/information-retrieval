@@ -39,16 +39,16 @@ public:
     }
 
     void next() override {
-        curDocId += rec.stream->get();
-        rec.stream->next();
+        curDocId += rec.get();
+        rec.next();
     }
 
     bool end() override {
-        return rec.stream->end();
+        return rec.end();
     }
 
     TID get() override {
-        return curDocId + rec.stream->get();
+        return curDocId + rec.get();
     }
 
     unsigned int len() override {
@@ -289,9 +289,9 @@ public:
         termPositions.reserve(id.size());
 
         for (TID i : id) {
+            assert(pos.count(i) > 0);
             termPositions.push_back(pos[i]);
         }
-
 
         while (true) {
             bool end = false;

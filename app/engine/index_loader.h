@@ -24,9 +24,11 @@ const size_t MAX_POS_FILES_PER_DIR = 5000;
 const size_t DOCS_PER_FILE = 10;
 
 
-struct IndexRecord {
+class IndexRecord {
+private:
     CompressedDataStream<TID> *stream;
 
+public:
     IndexRecord() {
         stream = nullptr;
     }
@@ -50,6 +52,34 @@ struct IndexRecord {
         }
     }
 
+    IndexRecord(const IndexRecord &other) {
+        stream = other.stream->copy();
+    }
+
+    ~IndexRecord() {
+        if (stream) delete stream;
+    }
+
+    IndexRecord& operator=(const IndexRecord &other) {
+        if (stream) {
+            delete stream;
+        }
+        stream = other.stream->copy();
+        return *this;
+    }
+
+    TID get() {
+        return stream->get();
+    }
+
+    void next() {
+        stream->next();
+    }
+
+    bool end() {
+        return stream->end();
+    }
+
     void clear() {
         if (stream) {
             stream->clear();
@@ -60,10 +90,12 @@ struct IndexRecord {
 };
 
 
-struct TermPositions {
-    TID termId;
+class TermPositions {
+private:
     CompressedDataStream<unsigned int> *stream;
     unsigned int curPos;
+public:
+    TID termId;
 
     TermPositions() : curPos(0), stream(nullptr) {}
 

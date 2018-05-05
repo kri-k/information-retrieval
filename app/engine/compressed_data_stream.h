@@ -11,6 +11,7 @@ public:
     virtual void next() = 0;
     virtual bool end() = 0;
     virtual void clear() = 0;
+    virtual CompressedDataStream<TData>* copy() = 0;
 };
 
 
@@ -25,6 +26,14 @@ public:
     VBDataStream(int8_t *data, unsigned int size) {
         this->data = data;
         codec = VB<TData, int8_t>(data, size);
+        isEnd = codec.end();
+        if (!isEnd) cur = codec.decodeNext();
+    }
+
+    VBDataStream(const VBDataStream &other) {
+        data = other.data;
+        codec = other.codec;
+        codec.reset();
         isEnd = codec.end();
         if (!isEnd) cur = codec.decodeNext();
     }
@@ -47,6 +56,10 @@ public:
             delete[] data;
             data = nullptr;
         }
+    }
+
+    CompressedDataStream<TData>* copy() override {
+        return new VBDataStream<TData>(*this);
     }
 };
 
@@ -66,6 +79,14 @@ public:
         if (!isEnd) cur = codec.decodeNext();
     }
 
+    VHBDataStream(const VHBDataStream &other) {
+        data = other.data;
+        codec = other.codec;
+        codec.reset();
+        isEnd = codec.end();
+        if (!isEnd) cur = codec.decodeNext();
+    }
+
     TData get() override {
         return cur;
     }
@@ -84,5 +105,9 @@ public:
             delete[] data;
             data = nullptr;
         }
+    }
+
+    CompressedDataStream<TData>* copy() override {
+        return new VHBDataStream<TData>(*this);
     }
 };
