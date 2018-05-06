@@ -94,13 +94,18 @@ class TermPositions {
 private:
     CompressedDataStream<unsigned int> *stream;
     unsigned int curPos;
+    bool detached;
 public:
     TID termId;
 
-    TermPositions() : curPos(0), stream(nullptr) {}
+    TermPositions() : curPos(0), stream(nullptr), detached(false) {}
 
     TermPositions(TID termId, CompressedDataStream<unsigned int> *stream) :
-        termId(termId), stream(stream), curPos(0) {}
+        termId(termId), stream(stream), curPos(0), detached(false) {}
+
+    ~TermPositions() {
+        if (detached && stream) delete stream;
+    }
 
     unsigned int get() {
         return curPos + stream->get();
@@ -121,6 +126,12 @@ public:
             delete stream;
             stream = nullptr;
         }
+    }
+
+    void detach() {
+        stream = stream->copy();
+        curPos = 0;
+        detached = true;
     }
 };
 

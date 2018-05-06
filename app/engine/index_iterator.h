@@ -277,11 +277,12 @@ public:
         bool result = false;
 
         auto allPositions = INDEX.getPositions(docId);
-        map<TID, TermPositions> pos;
+        auto &v = allPositions.terms;
+        map<TID, unsigned int> pos;
 
-        for (auto &p : allPositions.terms) {
-            if (uniqTerms.count(p.termId)) {
-                pos.emplace(p.termId, p);
+        for (unsigned int i = 0; i < v.size(); ++i) {
+            if (uniqTerms.count(v[i].termId)) {
+                pos.emplace(v[i].termId, i);
             }
         }
 
@@ -290,7 +291,8 @@ public:
 
         for (TID i : id) {
             assert(pos.count(i) > 0);
-            termPositions.push_back(pos[i]);
+            termPositions.push_back(v[pos[i]]);
+            termPositions.back().detach();
         }
 
         while (true) {
