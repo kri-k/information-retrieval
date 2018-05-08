@@ -1,7 +1,7 @@
 #pragma once
 
 #include <string>
-#include <fstream>
+#include <cstdio>
 #include <map>
 #include <unordered_map>
 #include <set>
@@ -27,15 +27,14 @@ const size_t DOCS_PER_FILE = 10;
 class IndexRecord {
 private:
     CompressedDataStream<TID> *stream;
-
 public:
     IndexRecord() {
         stream = nullptr;
     }
 
-    IndexRecord(ifstream &fin) {
+    IndexRecord(FILE *fin) {
         unsigned int bitCnt;
-        fin.read((char*)&bitCnt, sizeof(unsigned int));
+        fread(&bitCnt, sizeof(unsigned int), 1, fin);
 
         int codecType = bitCnt >> (sizeof(unsigned int) * 8 - 1);
         bitCnt &= (1 << (sizeof(unsigned int) * 8 - 1)) - 1;
@@ -43,7 +42,7 @@ public:
         unsigned int size = (bitCnt + sizeof(int8_t) * 8 - 1) / (sizeof(int8_t) * 8);
 
         int8_t *data = new int8_t[size];
-        fin.read((char*)data, sizeof(int8_t) * size);
+        fread(data, sizeof(int8_t), size, fin);
 
         if (codecType == 0) {
             stream = new VBDataStream<TID>(data, size);
@@ -142,7 +141,7 @@ struct DocTermPositions {
 
     DocTermPositions() {}
 
-    DocTermPositions(TID id, ifstream &fin) {
+    DocTermPositions(TID id, FILE *fin) {
         docId = id;
         TID termId;
         unsigned int termNum;
@@ -151,21 +150,20 @@ struct DocTermPositions {
         int codecType;
         CompressedDataStream<unsigned int> *stream;
 
-        fin.read((char*)&termNum, sizeof(unsigned int));
+        fread(&termNum, sizeof(unsigned int), 1, fin);
 
         terms.reserve(termNum);
 
         for (int i = 0; i < termNum; i++) {
-            fin.read((char*)&termId, sizeof(TID));
-
-            fin.read((char*)&bitCnt, sizeof(unsigned int));
+            fread(&termId, sizeof(TID), 1, fin);
+            fread(&bitCnt, sizeof(unsigned int), 1, fin);
 
             codecType = bitCnt >> (sizeof(unsigned int) * 8 - 1);
             bitCnt &= (1 << (sizeof(unsigned int) * 8 - 1)) - 1;
             size = (bitCnt + sizeof(int8_t) * 8 - 1) / (sizeof(int8_t) * 8);
 
             int8_t *data = new int8_t[size];
-            fin.read((char*)data, sizeof(int8_t) * size);
+            fread(data, sizeof(int8_t), size, fin);
 
             if (codecType == 0) {
                 stream = new VBDataStream<unsigned int>(data, size);
@@ -183,26 +181,22 @@ struct DocTermPositions {
         }
     }
 
-    static void skip(ifstream &fin) {
+    static void skip(FILE *fin) {
         TID termId;
         unsigned int termNum;
-        unsigned int len;
         unsigned int bitCnt;
         unsigned int size;
-        int8_t pos;
 
-        fin.read((char*)&termNum, sizeof(unsigned int));
+        fread(&termNum, sizeof(unsigned int), 1, fin);
 
         for (int i = 0; i < termNum; i++) {
-            fin.read((char*)&termId, sizeof(TID));
-            fin.read((char*)&bitCnt, sizeof(unsigned int));
+            fread(&termId, sizeof(TID), 1, fin);
+            fread(&bitCnt, sizeof(unsigned int), 1, fin);
 
             bitCnt &= (1 << (sizeof(unsigned int) * 8 - 1)) - 1;
             size = (bitCnt + sizeof(int8_t) * 8 - 1) / (sizeof(int8_t) * 8);
 
-            for (int j = 0; j < size; j++) {
-                fin.read((char*)&pos, sizeof(int8_t));
-            }
+            fseek(fin, sizeof(int8_t) * size, SEEK_CUR);
         }
     }
 };
@@ -216,14 +210,14 @@ private:
     map<TID, IndexRecord> records;
 
     void loadDocId(unsigned int file) {
-        ifstream fin(indexFiles[file]);
+        FILE *fin = fopen(indexFiles[file].c_str(), "rb");
 
         unsigned int n;
-        fin.read((char*)&n, sizeof(unsigned int));
-        
+        fread(&n, sizeof(unsigned int), 1, fin);
+
         TID termId;
         for (unsigned int i = 0; i < n; i++) {
-            fin.read((char*)&termId, sizeof(TID));
+            fread(&termId, sizeof(TID), 1, fin);
 
             IndexRecord rec(fin);
 
@@ -235,7 +229,7 @@ private:
             records[termId] = rec;
         }
 
-        fin.close();
+        fclose(fin);
     }
 
 public:
@@ -278,20 +272,20 @@ public:
             to_string(docId / DOCS_PER_FILE / MAX_POS_FILES_PER_DIR) + "/" + 
             to_string(docId / DOCS_PER_FILE);
 
-        ifstream fin(fileName);
+        FILE *fin = fopen(fileName.c_str(), "rb");
 
         for (int i = 0; i < DOCS_PER_FILE; i++) {
-            fin.read((char*)&curId, sizeof(TID));
+            fread(&curId, sizeof(TID), 1, fin);
             if (curId == docId) {
                 DocTermPositions res(docId, fin);
-                fin.close();
+                fclose(fin);
                 return res;
             } else {
                 DocTermPositions::skip(fin);
             }
         }
 
-        fin.close();
+        fclose(fin);
         if (curId != docId) {
             cerr << "ERROR: Can't find positions for docId " << docId << ", file name is '" << fileName << "'" << endl;
         }
