@@ -1,19 +1,21 @@
 #include <iostream>
 #include <fstream>
 #include <ctime>
+#include <chrono>
 #include "test.h"
 
 using namespace std;
+using namespace chrono;
 
 const string sampleDir("./samples/");
 const string resultDir("./results/");
 
-time_t TOTAL_TIME;
-time_t START_TIME;
-time_t FINISH_TIME;
-#define TIMING(s) START_TIME = time(0); s; FINISH_TIME = time(0); \
-                    std::cout << "* Done. Time: " << (FINISH_TIME - START_TIME) << " s" << endl; \
-                    TOTAL_TIME += FINISH_TIME - START_TIME;
+double TOTAL_TIME;
+time_point<system_clock> START_TIME;
+time_point<system_clock> FINISH_TIME;
+#define TIMING(s) START_TIME = system_clock::now(); s; FINISH_TIME = system_clock::now(); \
+                    cout << "* Done. Time: " << duration_cast<milliseconds>(FINISH_TIME - START_TIME).count() << " ms" << endl; \
+                    TOTAL_TIME += duration_cast<milliseconds>(FINISH_TIME - START_TIME).count();
 
 
 
@@ -38,7 +40,7 @@ int main() {
     }
 
     cout << "====================" << endl;
-    cout << "Total run time: " << TOTAL_TIME << " s" << endl;
+    cout << "Total run time: " << TOTAL_TIME << " ms" << endl;
 
     return 0;
 }

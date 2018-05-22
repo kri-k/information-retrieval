@@ -11,6 +11,7 @@
 #include <cassert>
 
 #include "../codec.h"
+#include "../index_jumps.h"
 
 
 time_t START_TIME;
@@ -34,6 +35,7 @@ using TID = unsigned int;
 vector<int8_t> compressedDataBuffer_4bit;
 vector<int8_t> compressedDataBuffer_8bit;
 vector<int16_t> compressedDataBuffer_16bit;
+vector<TID> jumpedDataBuffer;
 
 
 void systemNoReturn(const char* s) {
@@ -265,14 +267,23 @@ void writeIndex(vector<pair<TID, vector<TID>>> &records, const string &outputFil
             prev += v[j];
         }
 
+        jumpedDataBuffer.clear();
+        Jump::insertJumps<VHB<TID, int8_t>, TID>(v, jumpedDataBuffer);
+
         compressedDataBuffer_4bit.clear();
-        unsigned int n4 = VHB<TID, int8_t>::encode(v, compressedDataBuffer_4bit);
+        unsigned int n4 = VHB<TID, int8_t>::encode(jumpedDataBuffer, compressedDataBuffer_4bit);
         assert(n4 <= (1 << (sizeof(unsigned int) * 8 - 2)));
         n4 |= 1 << (sizeof(unsigned int) * 8 - 1);
 
+        jumpedDataBuffer.clear();
+        Jump::insertJumps<VB<TID, int8_t>, TID>(v, jumpedDataBuffer);
+
         compressedDataBuffer_8bit.clear();
-        unsigned int n8 = VB<TID, int8_t>::encode(v, compressedDataBuffer_8bit);
+        unsigned int n8 = VB<TID, int8_t>::encode(jumpedDataBuffer, compressedDataBuffer_8bit);
         assert(n8 <= (1 << (sizeof(unsigned int) * 8 - 2)));
+
+        n = v.size();
+        fout.write((char*)&n, sizeof(unsigned int));
 
         if (compressedDataBuffer_8bit.size() <= compressedDataBuffer_4bit.size()) {
             fout.write((char*)&n8, sizeof(unsigned int));

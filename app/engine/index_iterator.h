@@ -4,6 +4,7 @@
 #include <map>
 #include <cassert>
 #include "index_loader.h"
+#include "../../index_jumps.h"
 
 
 using namespace std;
@@ -15,23 +16,36 @@ Index INDEX;
 class IndexIterator {
 public:
     virtual ~IndexIterator() {};
+
     virtual void next() = 0;
     virtual bool end() = 0;
     virtual TID get() = 0;
     virtual unsigned int len() = 0;
+
+    virtual bool isJump() { return false; }
+    virtual void jump() {}
+    virtual void rollback() {}
 };
 
 
 class SimpleIterator : public IndexIterator {
 private:
     TID id;
-    TID curDocId;
     IndexRecord rec;
+    unsigned int jlen;
+    TID curDocId;
+    TID prevDocId;
+    unsigned int curNum;
+    unsigned int prevNum;
+    unsigned int prevOffset;
 public:
     SimpleIterator(TID termId) {
         rec = INDEX.get(termId);
         id = termId;
-        curDocId = 0;
+        prevDocId = curDocId = 0;
+        prevNum = curNum = 0;
+        prevOffset = 0;
+        jlen = Jump::jumpLength(rec.length);
     }
 
     ~SimpleIterator() {
@@ -40,6 +54,11 @@ public:
 
     void next() override {
         curDocId += rec.get();
+        if (isJump()) {
+            rec.next();
+            rec.next();
+        }
+        curNum++;
         rec.next();
     }
 
@@ -52,7 +71,34 @@ public:
     }
 
     unsigned int len() override {
-        return 0;
+        return rec.length;
+    }
+
+    bool isJump() override { 
+        return Jump::isJump(curNum, jlen, rec.length);
+    }
+
+    void jump() override {
+        prevOffset = rec.getOffset();
+        prevDocId = curDocId;
+        prevNum = curNum;
+
+        curDocId += rec.get();
+        rec.next();
+        curDocId += rec.get();
+        rec.next();
+
+        unsigned int tmp = rec.get();
+        rec.next();
+        rec.setOffset(rec.getOffset() + tmp);
+
+        curNum += jlen;
+    }
+
+    void rollback() override {
+        rec.setOffset(prevOffset);
+        curDocId = prevDocId;
+        curNum = prevNum;
     }
 };
 
@@ -110,10 +156,17 @@ public:
         a = first;
         b = second;
         while (!end() && a->get() != b->get()) {
-            if (a->get() < b->get()) {
-                a->next();
+            if (a->get() > b->get()) {
+                swap(a, b);
+            }
+            if (a->isJump()) {
+                a->jump();
+                if (a->end() || a->get() > b->get()) {
+                    a->rollback();
+                    a->next();
+                }
             } else {
-                b->next();
+                a->next();
             }
         }
     }
@@ -135,10 +188,17 @@ public:
         }
 
         while (!end() && a->get() != b->get()) {
-            if (a->get() < b->get()) {
-                a->next();
+            if (a->get() > b->get()) {
+                swap(a, b);
+            }
+            if (a->isJump()) {
+                a->jump();
+                if (a->end() || a->get() > b->get()) {
+                    a->rollback();
+                    a->next();
+                }
             } else {
-                b->next();
+                a->next();
             }
         }
     }

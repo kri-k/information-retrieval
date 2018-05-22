@@ -14,7 +14,7 @@ using namespace std;
 using TID = unsigned int;
 
 
-const string WORK_DIR("/home/forlabs/wiki_index_compress/");
+const string WORK_DIR("/home/forlabs/wiki_index_jump/");
 const unsigned int MAX_DOC_ID = 545386;
 
 const size_t MAX_INDEX_FILES_NUM = 100;
@@ -28,11 +28,15 @@ class IndexRecord {
 private:
     CompressedDataStream<TID> *stream;
 public:
+    unsigned int length;
+
     IndexRecord() {
         stream = nullptr;
     }
 
     IndexRecord(FILE *fin) {
+        fread(&length, sizeof(unsigned int), 1, fin);
+
         unsigned int bitCnt;
         fread(&bitCnt, sizeof(unsigned int), 1, fin);
 
@@ -53,6 +57,7 @@ public:
 
     IndexRecord(const IndexRecord &other) {
         stream = other.stream->copy();
+        length = other.length;
     }
 
     ~IndexRecord() {
@@ -64,6 +69,7 @@ public:
             delete stream;
         }
         stream = other.stream->copy();
+        length = other.length;
         return *this;
     }
 
@@ -86,6 +92,14 @@ public:
             stream = nullptr;
         }
     }
+
+    unsigned int getOffset() {
+        return stream->getOffset();
+    }
+
+    void setOffset(unsigned int offset) {
+        stream->setOffset(offset);
+    }
 };
 
 
@@ -97,10 +111,10 @@ private:
 public:
     TID termId;
 
-    TermPositions() : curPos(0), stream(nullptr), detached(false) {}
+    TermPositions() : stream(nullptr), curPos(0), detached(false) {}
 
     TermPositions(TID termId, CompressedDataStream<unsigned int> *stream) :
-        termId(termId), stream(stream), curPos(0), detached(false) {}
+        stream(stream), curPos(0), detached(false), termId(termId) {}
 
     ~TermPositions() {
         if (detached && stream) delete stream;
