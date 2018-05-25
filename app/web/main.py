@@ -6,8 +6,10 @@ import time
 from flask import Flask, request, render_template
 import unicodedata
 import pymorphy2
+
 import client
 import input_parser
+from snippets import get_snippet
 
 
 DOC_ID = dict()
@@ -25,7 +27,7 @@ DOC_PATH = dict()
 
 
 with open(DOC_TITLES_FILE, 'r', encoding='utf-8') as fin:
-    ID_TO_DOC_TITLE = [line for line in fin]
+    ID_TO_DOC_TITLE = [line.strip('\n') for line in fin]
     print('LOADED DOC TITLES')
 
 
@@ -175,10 +177,18 @@ def search():
         if p > max_p:
             return render_template('search.html', error='Ничего не найдено ¯\_(ツ)_/¯', time=timing())
 
-        res = [ID_TO_DOC_TITLE[i] for i in l[p * RESPONSE_BLOCK_SIZE:(p + 1) * RESPONSE_BLOCK_SIZE]]
+        request_list = list(s for s in clear_text.split() if s not in '&|"' and not s.startswith('/'))
+        res = [
+            {
+                'title': ID_TO_DOC_TITLE[i],
+                'snippet': get_snippet(request_list, DOC_PATH[ID_TO_DOC_TITLE[i]], lambda s: remove_accents(s).lower())
+            } 
+            for i in l[p * RESPONSE_BLOCK_SIZE:(p + 1) * RESPONSE_BLOCK_SIZE]
+        ]
+
         return render_template(
             'search.html', 
-            result=res, 
+            results=res,
             txt=clear_text, 
             btn=generate_buttons(p, 5, request.args.get('text')),
             time=timing())

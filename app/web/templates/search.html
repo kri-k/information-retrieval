@@ -61,9 +61,12 @@ ul.btn_horiz li{
             <h2>{{ error }}, Время выполнения: {{ time }}c</h2>
         {% else %}
             <ol type="1">
-            {% for val in result %}
-                <li><a href="https://ru.wikipedia.org/wiki/{{ val }}" color="black"> {{ val.replace('_', ' ') }} </a> </li>
-                <h6><a href="./archive/{{ val }}">Посмотреть сохраненный текст</a></h6>
+            {% for val in results %}
+                <li><a href="https://ru.wikipedia.org/wiki/{{ val.title }}" color="black"> {{ val.title.replace('_', ' ') }} </a> </li>
+                <h6><a href="./archive/{{ val.title }}">Посмотреть сохраненный текст</a></h6>
+                <div style="width: 70%">
+                    <p>{{ val.snippet }}</p>
+                </div>
                 <li>----</li>
             {% endfor %}
             </ol>
