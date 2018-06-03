@@ -16,6 +16,16 @@ def add_explicit_conjunction(res):
 
 
 def get_tokens(s):
+    bool_query_markers = '!&|"()'
+    boolean = False
+    for c in bool_query_markers:
+        if c in s:
+            boolean = True
+            break
+
+    if not boolean:
+        return (boolean, list(s.split()))
+
     s = ' '.join(s.split()).replace('&&', '&').replace('||', '|')
     res = []
 
@@ -47,7 +57,7 @@ def get_tokens(s):
 
         s = s[r:]
 
-    return res
+    return (boolean, res)
 
 
 def _get_tokens(s):
@@ -153,13 +163,17 @@ def to_postfix_notation(tokens):
 
 
 def get_postfix_expression(s):
-    p = to_postfix_notation(get_tokens(s))
+    boolean, tokens = get_tokens(s)
+    if not boolean:
+        return boolean, len(tokens), tuple(tokens)
+
+    p = to_postfix_notation(tokens)
     if p is None:
         return None, None
     cnt = check_postfix_expr(p)
     if cnt is None:
-        return None, None
-    return cnt, tuple(p)
+        return False, None, None
+    return boolean, cnt, tuple(p)
 
 
 if __name__ == '__main__':

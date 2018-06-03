@@ -23,10 +23,10 @@ const int RESPONSE_BLOCK_SIZE = 50;
 
 
 char *BUFFER = new char[1000000];
-vector<IndexIterator*> requests;
+vector<RankDecorator*> requests;
 
-
-void clearVector(vector<IndexIterator*> &v) {
+template<typename T>
+void clearVector(vector<T*> &v) {
     for (int i = 0; i < v.size(); i++) {
         delete v[i];
     }
@@ -58,7 +58,7 @@ IndexIterator* getQuoteIterator(stringstream &ss) {
 }
 
 
-IndexIterator* getIterator(const string &expr) {
+IndexIterator* getIteratorBoolean(const string &expr) {
     vector<IndexIterator*> stack;
     stringstream ss(expr);
     string s;
@@ -98,7 +98,7 @@ IndexIterator* getIterator(const string &expr) {
         } else if (s == "\"") {
             stack.push_back(getQuoteIterator(ss));
         } else {
-            stack.push_back(new SimpleIterator(stoi(s)));
+            stack.push_back(new SimpleIterator(stoul(s)));
         }
     }
     if (stack.size() != 1) {
@@ -109,7 +109,34 @@ IndexIterator* getIterator(const string &expr) {
 }
 
 
-void sendNextDocId(IndexIterator *iter) {
+RankDecorator* getIterator(const string &expr) {
+    bool boolean = false;
+    for (char c : "&|!\"()") {
+        if (expr.find(c) != string::npos) {
+            boolean = true;
+            break;
+        }
+    }
+
+    if (boolean) {
+        auto it = getIteratorBoolean(expr);
+        if (it) return new RankDecorator(it);
+        return nullptr;
+    }
+
+    vector<TID> query;
+    stringstream ss(expr);
+    string s;
+    while (ss >> s) {
+        query.push_back(stoul(s));
+    }
+
+    if (query.size() == 0) return nullptr;
+    return new RankDecorator(query);
+}
+
+
+void sendNextDocId(RankDecorator* iter) {
     vector<TID> v;
 
     while (!iter->end() && v.size() < RESPONSE_BLOCK_SIZE) {
@@ -157,7 +184,7 @@ int main() {
 
             cout << "LEN = " << length << ", STR = " << expr << endl;
 
-            IndexIterator *iter = getIterator(expr);
+            auto iter = getIterator(expr);
 
             ofstream fout(RESPONSE_PIPE, ios::binary);
 
@@ -199,6 +226,9 @@ int main() {
             fout.close();
         }
     }
+
+    clearVector(requests);
+    delete[] BUFFER;
 
     return 0;
 }

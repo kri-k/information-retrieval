@@ -15,10 +15,19 @@ struct TestItem {
 };
 
 
-void getAll(IndexIterator *it, ostream &cout) {
-    while (!it->end()) {
-        cout << it->get() << endl;
-        it->next();
+void getAll(IndexIterator *it, ostream &cout, bool ranked=true) {
+    if (ranked) {
+        RankDecorator rIt(it);
+        while (!rIt.end()) {
+            cout << rIt.get() << endl;
+            rIt.next();
+        }
+    } else {
+        while (!it->end()) {
+            cout << it->get() << endl;
+            it->next();
+        }
+        delete it;
     }
 }
 
@@ -29,7 +38,6 @@ vector<TestItem> tests = {
         [](ostream &cout) {
             IndexIterator *it = new SimpleIterator(2069902);
             getAll(it, cout);
-            delete it;
         },
         "1.test"
     },
@@ -38,7 +46,6 @@ vector<TestItem> tests = {
         [](ostream &cout) {
             IndexIterator *it = new AndIterator(new SimpleIterator(3098799), new SimpleIterator(1369257));
             getAll(it, cout);
-            delete it;
         },
         "2.test"
     },
@@ -49,7 +56,6 @@ vector<TestItem> tests = {
             IndexIterator *b = new AndIterator(new SimpleIterator(3098799), new SimpleIterator(1799149));
             IndexIterator *it = new OrIterator(a, b);
             getAll(it, cout);
-            delete it;
         },
         "3.test"
     },
@@ -58,7 +64,6 @@ vector<TestItem> tests = {
         [](ostream &cout) {
             IndexIterator *it = new QuoteIterator({2069902, 2720450, 1255913}, 4);
             getAll(it, cout);
-            delete it;
         },
         "4.test"
     },
@@ -67,7 +72,6 @@ vector<TestItem> tests = {
         [](ostream &cout) {
             IndexIterator *it = new QuoteIterator({2069902, 2720450, 2125081, 1255913}, 4);
             getAll(it, cout);
-            delete it;
         },
         "5.test"
     },
@@ -76,7 +80,6 @@ vector<TestItem> tests = {
         [](ostream &cout) {
             IndexIterator *it = new QuoteIterator({3098799, 1369257, 1799149}, 3);
             getAll(it, cout);
-            delete it;
         },
         "6.test"
     },
@@ -85,7 +88,6 @@ vector<TestItem> tests = {
         [](ostream &cout) {
             IndexIterator *it = new QuoteIterator({1219117, 1668634, 2125081}, 4);
             getAll(it, cout);
-            delete it;
         },
         "7.test"
     },
@@ -94,7 +96,6 @@ vector<TestItem> tests = {
         [](ostream &cout) {
             IndexIterator *it = new QuoteIterator({1219117, 1668634, 2125081, 1219117}, 4);
             getAll(it, cout);
-            delete it;
         },
         "8.test"
     },
@@ -103,7 +104,6 @@ vector<TestItem> tests = {
         [](ostream &cout) {
             IndexIterator *it = new SimpleIterator(2720450);
             getAll(it, cout);
-            delete it;
         },
         "9.test"
     },
@@ -112,7 +112,6 @@ vector<TestItem> tests = {
         [](ostream &cout) {
             IndexIterator *it = new SimpleIterator(2125081);
             getAll(it, cout);
-            delete it;
         },
         "10.test"
     },
@@ -121,7 +120,6 @@ vector<TestItem> tests = {
         [](ostream &cout) {
             IndexIterator *it = new SimpleIterator(1255913);
             getAll(it, cout);
-            delete it;
         },
         "11.test"
     },
@@ -130,7 +128,6 @@ vector<TestItem> tests = {
         [](ostream &cout) {
             IndexIterator *it = new AndIterator(new SimpleIterator(2069902), new SimpleIterator(2720450));
             getAll(it, cout);
-            delete it;
         },
         "12.test"
     },
@@ -139,7 +136,6 @@ vector<TestItem> tests = {
         [](ostream &cout) {
             IndexIterator *it = new AndIterator(new SimpleIterator(2069902), new SimpleIterator(2125081));
             getAll(it, cout);
-            delete it;
         },
         "13.test"
     },
@@ -148,7 +144,6 @@ vector<TestItem> tests = {
         [](ostream &cout) {
             IndexIterator *it = new AndIterator(new SimpleIterator(2720450), new SimpleIterator(2125081));
             getAll(it, cout);
-            delete it;
         },
         "14.test"
     },
@@ -158,7 +153,6 @@ vector<TestItem> tests = {
             IndexIterator *a = new AndIterator(new SimpleIterator(2069902), new SimpleIterator(2720450));
             IndexIterator *it = new AndIterator(a, new SimpleIterator(2125081));
             getAll(it, cout);
-            delete it;
         },
         "15.test"
     },
@@ -168,7 +162,6 @@ vector<TestItem> tests = {
             IndexIterator *a = new AndIterator(new SimpleIterator(2069902), new SimpleIterator(2720450));
             IndexIterator *it = new AndIterator(a, new SimpleIterator(1255913));
             getAll(it, cout);
-            delete it;
         },
         "16.test"
     },
@@ -179,7 +172,6 @@ vector<TestItem> tests = {
             IndexIterator *b = new AndIterator(new SimpleIterator(2125081), new SimpleIterator(1255913));
             IndexIterator *it = new AndIterator(a, b);
             getAll(it, cout);
-            delete it;
         },
         "17.test"
     },
@@ -188,7 +180,6 @@ vector<TestItem> tests = {
         [](ostream &cout) {
             IndexIterator *it = new AndIterator(new SimpleIterator(2069902), new SimpleIterator(2069902));
             getAll(it, cout);
-            delete it;
         },
         "18.test"
     },
@@ -200,7 +191,6 @@ vector<TestItem> tests = {
             IndexIterator *it = new OrIterator(a, b);
             it = new AndIterator(it, new SimpleIterator(3098799));
             getAll(it, cout);
-            delete it;
         },
         "19.test"
     },
@@ -213,7 +203,6 @@ vector<TestItem> tests = {
             IndexIterator *it = new AndIterator(a, b);
             it = new AndIterator(it, c);
             getAll(it, cout);
-            delete it;
         },
         "20.test"
     },
@@ -226,7 +215,6 @@ vector<TestItem> tests = {
             it = new AndIterator(it, new SimpleIterator(1369257));
             it = new AndIterator(it, new SimpleIterator(1799149));
             getAll(it, cout);
-            delete it;
         },
         "21.test"
     },
@@ -235,7 +223,6 @@ vector<TestItem> tests = {
         [](ostream &cout) {
             IndexIterator *it = new AndIterator(new SimpleIterator(1643361), new SimpleIterator(2003227));
             getAll(it, cout);
-            delete it;
         },
         "22.test"
     },
@@ -244,7 +231,6 @@ vector<TestItem> tests = {
         [](ostream &cout) {
             IndexIterator *it = new AndIterator(new SimpleIterator(1271737), new SimpleIterator(1011528));
             getAll(it, cout);
-            delete it;
         },
         "23.test"
     },
@@ -253,7 +239,6 @@ vector<TestItem> tests = {
         [](ostream &cout) {
             IndexIterator *it = new AndIterator(new SimpleIterator(1011528), new SimpleIterator(2003227));
             getAll(it, cout);
-            delete it;
         },
         "24.test"
     },
@@ -263,7 +248,6 @@ vector<TestItem> tests = {
             IndexIterator *it = new AndIterator(new SimpleIterator(1011528), new SimpleIterator(2003227));
             it = new AndIterator(it, new SimpleIterator(1271737));
             getAll(it, cout);
-            delete it;
         },
         "25.test"
     },
@@ -273,7 +257,6 @@ vector<TestItem> tests = {
             IndexIterator *it = new AndIterator(new SimpleIterator(2003227), new SimpleIterator(1271737));
             it = new AndIterator(it, new SimpleIterator(1011528));
             getAll(it, cout);
-            delete it;
         },
         "26.test"
     },
@@ -284,7 +267,6 @@ vector<TestItem> tests = {
             IndexIterator *b = new AndIterator(new SimpleIterator(978768), new SimpleIterator(2092054));
             IndexIterator *it = new AndIterator(a, b);
             getAll(it, cout);
-            delete it;
         },
         "27.test"
     },
@@ -293,7 +275,6 @@ vector<TestItem> tests = {
         [](ostream &cout) {
             IndexIterator *it = new AndIterator(new SimpleIterator(1271737), new SimpleIterator(3082065));
             getAll(it, cout);
-            delete it;
         },
         "28.test"
     },
@@ -302,7 +283,6 @@ vector<TestItem> tests = {
         [](ostream &cout) {
             IndexIterator *it = new AndIterator(new SimpleIterator(1271737), new SimpleIterator(2003227));
             getAll(it, cout);
-            delete it;
         },
         "29.test"
     },
@@ -311,7 +291,6 @@ vector<TestItem> tests = {
         [](ostream &cout) {
             IndexIterator *it = new AndIterator(new SimpleIterator(1271737), new SimpleIterator(1643361));
             getAll(it, cout);
-            delete it;
         },
         "30.test"
     }

@@ -2,6 +2,9 @@
 #include <fstream>
 #include <ctime>
 #include <chrono>
+#include <fstream>
+#include <vector>
+#include <algorithm>
 #include "test.h"
 
 using namespace std;
@@ -17,6 +20,29 @@ time_point<system_clock> FINISH_TIME;
                     cout << "* Done. Time: " << duration_cast<milliseconds>(FINISH_TIME - START_TIME).count() << " ms" << endl; \
                     TOTAL_TIME += duration_cast<milliseconds>(FINISH_TIME - START_TIME).count();
 
+int TOTAL_ERR_NUM = 0;
+
+bool eq(const string &fileA, const string &fileB) {
+    vector<string> a;
+    vector<string> b;
+    string s;
+
+    ifstream finA(fileA);
+    while (finA >> s) {
+        a.push_back(s);
+    }
+    finA.close();
+    sort(a.begin(), a.end());
+
+    ifstream finB(fileB);
+    while (finB >> s) {
+        b.push_back(s);
+    }
+    finB.close();
+    sort(b.begin(), b.end());
+
+    return a == b;
+}
 
 
 int main() {
@@ -33,14 +59,17 @@ int main() {
         string a = sampleDir + t.sampleFileName;
         string b = resultDir + t.sampleFileName;
         cout << "Test [" << t.testName << "]: ";
-        cout.flush();
-        string cmd = "cmp -s " + a + " " + b + 
-            "; if [ $? -eq 0 ]; then echo \"OK\"; else echo \"FAIL\"; fi";
-        int res = system(cmd.c_str());
+        if (eq(a, b)) {
+            cout << "OK";
+        } else {
+            cout << "FAIL";
+            TOTAL_ERR_NUM++;
+        }
+        cout << endl;
     }
 
     cout << "====================" << endl;
     cout << "Total run time: " << TOTAL_TIME << " ms" << endl;
-
+    cout << "Errors: " << TOTAL_ERR_NUM << "/" << tests.size() << endl;
     return 0;
 }

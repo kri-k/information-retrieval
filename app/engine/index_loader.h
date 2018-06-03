@@ -14,14 +14,18 @@ using namespace std;
 using TID = unsigned int;
 
 
-const string WORK_DIR("/home/forlabs/wiki_index_jump/");
-const unsigned int MAX_DOC_ID = 545386;
+const string WORK_DIR("/home/forlabs/wiki_index_range/");
+const TID MAX_DOC_ID = 545386;
 
 const size_t MAX_INDEX_FILES_NUM = 100;
 const size_t RECORDS_PER_FILE = 100000;
 
 const size_t MAX_POS_FILES_PER_DIR = 5000;
 const size_t DOCS_PER_FILE = 10;
+
+const string TF_FILE_PATH = "/tf";
+const string TF_OFFSET_FILE_PATH = "/tf_offsets";
+const string POSITIONS_DIR_PATH = "/positions/";
 
 
 class IndexRecord {
@@ -223,6 +227,11 @@ private:
     map<TID, size_t> usageCnt;
     map<TID, IndexRecord> records;
 
+    static const int MAX_DOC_TF_CACHE_SIZE = 50000;
+    vector<unsigned int> TFOffsets;
+    map<TID, map<TID, unsigned int>> docTermTF;
+    FILE *finTF;
+
     void loadDocId(unsigned int file) {
         FILE *fin = fopen(indexFiles[file].c_str(), "rb");
 
@@ -246,6 +255,32 @@ private:
         fclose(fin);
     }
 
+    void loadDocTF(TID docId) {
+        if (docTermTF.size() == MAX_DOC_TF_CACHE_SIZE) {
+            docTermTF.erase(docTermTF.begin());
+        }
+        fseek(finTF, sizeof(int8_t) * TFOffsets[docId], SEEK_SET);
+        unsigned int length = TFOffsets[docId + 1] - TFOffsets[docId];
+        int8_t *buf = new int8_t[length];
+        fread(buf, sizeof(int8_t), length, finTF);
+
+        VB<unsigned int, int8_t> vb(buf, length);
+        TID termId;
+        unsigned int tf;
+
+        vector<pair<TID, unsigned int>> res;
+
+        while (!vb.end()) {
+            termId = vb.decodeNext();
+            tf = vb.decodeNext();
+            res.emplace_back(termId, tf);
+        }
+
+        delete[] buf;
+
+        docTermTF[docId].insert(res.begin(), res.end());
+    }
+
 public:
     Index() {
         recordsNum = 0;
@@ -253,12 +288,22 @@ public:
         for (int i = 0; i < MAX_INDEX_FILES_NUM; i++) {
             indexFiles.push_back(WORK_DIR + to_string(i));
         }
+
+        unsigned int tmp;
+        FILE *fin = fopen((WORK_DIR + TF_OFFSET_FILE_PATH).c_str(), "rb");
+        for (TID i = 0; i <= MAX_DOC_ID; ++i) {
+            fread(&tmp, sizeof(unsigned int), 1, fin);
+            TFOffsets.push_back(tmp);
+        }
+
+        finTF = fopen((WORK_DIR + TF_FILE_PATH).c_str(), "rb");
     }
 
     ~Index() {
         for (auto i : records) {
             i.second.clear();
         }
+        if (finTF) fclose(finTF);
     }
 
     IndexRecord& get(TID termId) {
@@ -282,7 +327,7 @@ public:
         unsigned int n;
         TID curId = -1;
         string fileName = 
-            WORK_DIR + "positions/" + 
+            WORK_DIR + POSITIONS_DIR_PATH + 
             to_string(docId / DOCS_PER_FILE / MAX_POS_FILES_PER_DIR) + "/" + 
             to_string(docId / DOCS_PER_FILE);
 
@@ -304,5 +349,12 @@ public:
             cerr << "ERROR: Can't find positions for docId " << docId << ", file name is '" << fileName << "'" << endl;
         }
         return DocTermPositions();
+    }
+
+    unsigned int getTF(TID docId, TID termId) {
+        if (docTermTF.count(docId) == 0) {
+            loadDocTF(docId);
+        }
+        return docTermTF[docId][termId];
     }
 };

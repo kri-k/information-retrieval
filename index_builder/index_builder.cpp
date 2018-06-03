@@ -32,6 +32,11 @@ namespace fs = std::experimental::filesystem;
 using TID = unsigned int;
 
 
+const string TF_FILE_PATH = "/tf";
+const string TF_OFFSET_FILE_PATH = "/tf_offsets";
+const string POSITIONS_DIR_PATH = "/positions/";
+
+
 vector<int8_t> compressedDataBuffer_4bit;
 vector<int8_t> compressedDataBuffer_8bit;
 vector<int16_t> compressedDataBuffer_16bit;
@@ -170,6 +175,29 @@ void writePositions(TID docId, map<TID, vector<unsigned int>> &positions, const 
 }
 
 
+void writeTF(
+    map<TID, vector<unsigned int>> &positions, 
+    unsigned int &curTFOffset, 
+    ofstream &foutTFOffsets, 
+    ofstream &foutTF)
+{
+    foutTFOffsets.write((char*)&curTFOffset, sizeof(unsigned int));
+
+    vector<TID> v;
+    for (auto &p : positions) {
+        v.push_back(p.first);
+        v.push_back(p.second.size());
+    }
+
+    compressedDataBuffer_8bit.clear();
+    VB<unsigned int, int8_t>::encode(v, compressedDataBuffer_8bit);
+    curTFOffset += compressedDataBuffer_8bit.size();
+    foutTF.write(
+        (char*)compressedDataBuffer_8bit.data(), 
+        sizeof(int8_t) * compressedDataBuffer_8bit.size());
+}
+
+
 void processDocuments(
     char *paths[], 
     int pathsNum, 
@@ -183,7 +211,11 @@ void processDocuments(
     vector<pair<TID, TID>> records;
 
     int curOutputFileNum = 0;
-    string positionsDir = outputDir + "/positions/";
+    string positionsDir = outputDir + POSITIONS_DIR_PATH;
+
+    ofstream foutTF(outputDir + TF_FILE_PATH);
+    ofstream foutTFOffsets(outputDir + TF_OFFSET_FILE_PATH);
+    unsigned int curTFOffset = 0;
 
     for (int i = 0; i < pathsNum; i++) {
         for (auto& p: fs::recursive_directory_iterator(paths[i])) {
@@ -228,10 +260,16 @@ void processDocuments(
             curPosFile += "/" + to_string(curPosFileNum);
 
             writePositions(curDocId, positions, curPosFile);
+            writeTF(positions, curTFOffset, foutTFOffsets, foutTF);
 
             curDocId++;
         }
     }
+
+    foutTFOffsets.write((char*)&curTFOffset, sizeof(unsigned int));
+    
+    foutTF.close();
+    foutTFOffsets.close();
 
     if (!records.empty()) {
         string fileName = outputDir + '/' + to_string(curOutputFileNum);
@@ -360,7 +398,7 @@ int main(int argc, char *argv[]) {
 
     vector<string> documents;
 
-    string positionsDir = outputDir + "/positions/";
+    string positionsDir = outputDir + POSITIONS_DIR_PATH;
 
     string cmd;
 
@@ -373,10 +411,20 @@ int main(int argc, char *argv[]) {
     cout << "Processing documents..." << endl;
     TIMING(processDocuments(argv + 4, argc - 4, outputDir, tokenToTermId, documents));
 
+    tokenToTermId.clear();
+    compressedDataBuffer_4bit.clear();
+    compressedDataBuffer_4bit.shrink_to_fit();
+    compressedDataBuffer_8bit.clear();
+    compressedDataBuffer_8bit.shrink_to_fit();
+    compressedDataBuffer_16bit.clear();
+    compressedDataBuffer_16bit.shrink_to_fit();
+    jumpedDataBuffer.clear();
+    jumpedDataBuffer.shrink_to_fit();
+
     cout << "Merging index blocks..." << endl;
     cmd = "sort -k 1n -k 2n --merge --unique --buffer-size=30% --parallel=2 --output=";
     cmd += outputDir + "/merge ";
-    cmd += "$(find " + outputDir + " -maxdepth 1 -type f)";
+    cmd += "$(find " + outputDir + " -maxdepth 1 -type f -regextype posix-extended -regex '.*/[0-9]+')";
 
     TIMING(systemNoReturn(cmd.c_str()));
 
@@ -387,18 +435,24 @@ int main(int argc, char *argv[]) {
         cout << tmp << endl;
         systemNoReturn(tmp.c_str());
     }
+
     cout << "* Done" << endl;
 
     cout << "Writing doc titles list..." << endl;
     TIMING(writeVector(documents, outputDir + "/docs"));
     documents.clear();
+    documents.shrink_to_fit();
 
     cout << "Writing terms list..." << endl;
     TIMING(writeVector(terms, outputDir + "/terms"));
     terms.clear();
+    terms.shrink_to_fit();
 
     cout << "Building index..." << endl;
     TIMING(buildIndex(outputDir));
 
+    cmd = "rm -f " + outputDir + "/merge";
+    systemNoReturn(cmd.c_str());
+    
     return 0;
 }

@@ -15,10 +15,10 @@ from snippets import get_snippet
 DOC_ID = dict()
 RESPONSE_BLOCK_SIZE = 50
 
-
-DOC_TITLES_FILE = '/home/forlabs/wiki_index/docs'
-TERMS_FILE = '/home/forlabs/wiki_index/terms'
-PATHS_FILE = '/home/forlabs/wiki_index/paths'
+WORK_DIR = '/home/forlabs/wiki_index_range/'
+DOC_TITLES_FILE = WORK_DIR + 'docs'
+TERMS_FILE = WORK_DIR + 'terms'
+PATHS_FILE = WORK_DIR + 'paths'
 
 
 TERM_TO_ID = dict() 
@@ -50,19 +50,34 @@ with open(PATHS_FILE, 'r', encoding='utf-8') as fin:
 morph = pymorphy2.MorphAnalyzer()
 
 
+def lemmatize(word):
+    # word = remove_accents(morph.parse(word.strip('\n'))[0].normal_form).lower()
+    word = remove_accents(word.strip('\n')).lower();
+    return word
+
+
 def remove_accents(input_str):
     nfkd_form = unicodedata.normalize('NFKD', input_str)
     return u"".join([c for c in nfkd_form if not unicodedata.combining(c)])
 
 
-def normalize(text, id=True):
+def normalize(text, boolean, id=True):
+    if boolean:
+        return normalize_boolean(text, id)
+
+    if id:
+        return [str(TERM_TO_ID[lemmatize(i)]) for i in text if lemmatize(i) in TERM_TO_ID]
+    else:
+        return [lemmatize(i) for i in text]
+
+
+def normalize_boolean(text, id=True):
     res = []
     for i in text:
         if i in ('&', '|', '!'):
             res.append(i)
         else:
-            # i = remove_accents(morph.parse(i.strip('\n'))[0].normal_form).lower()
-            i = remove_accents(i).lower();
+            i = lemmatize(i)
             if id:
                 if '"' == i[0] == i[-1]:
                     l = []
@@ -121,11 +136,12 @@ def search():
         if len(err):
             return render_template('search.html', error=err, time=timing())
 
-        clear_text = ' '.join(normalize(input_parser.get_tokens(text), id=False))
+        _b, _t = input_parser.get_tokens(text)
+        clear_text = ' '.join(normalize(_t, _b, id=False))
         print(clear_text)
 
         err = ''
-        cnt, text = input_parser.get_postfix_expression(text)
+        boolean, cnt, text = input_parser.get_postfix_expression(text)
         if cnt is None:
             err = "Bad expression"
         elif cnt > client.MAX_CNT_REQUEST_VAR:
@@ -134,8 +150,8 @@ def search():
         if len(err):
             return render_template('search.html', error=err, time=timing())
 
-        text = normalize(text)
-        if text is None:
+        text = normalize(text, boolean)
+        if text is None or len(text) == 0:
             return render_template('search.html', error="Ничего не найдено ┐('～`;)┌", time=timing())
 
         text = ' '.join(text)
