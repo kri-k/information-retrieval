@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from collections import Counter, defaultdict
+import re
 
 
 MAX_SNIPPET_LENGTH = 300
@@ -7,9 +8,14 @@ DELTA_INIT = 1
 DELTA_STEP = 5
 
 
-def get_snippet(query, text_path, lemmatize):
+def get_snippet(query, id, text_path, lemmatize):
     with open(text_path, 'r') as f:
         pure_text = f.read().replace('\n', ' ')
+
+    pure_text = re.search(
+        r'<doc\s+id="{0}"\s+url=".+?"\s+title=".+?">(.+?)<\/doc>'.format(id), 
+        pure_text, 
+        flags=(re.M | re.S | re.U)).group(1)
 
     cnt = Counter()
     for s in query:

@@ -3,6 +3,7 @@
 
 import os
 import time
+import re
 from flask import Flask, request, render_template
 import unicodedata
 import pymorphy2
@@ -15,20 +16,25 @@ from snippets import get_snippet
 DOC_ID = dict()
 RESPONSE_BLOCK_SIZE = 50
 
-WORK_DIR = '/home/forlabs/wiki_index_range/'
-DOC_TITLES_FILE = WORK_DIR + 'docs'
+WORK_DIR = '/home/krik-standard/wiki_index/'
+DOCS_META_FILE = WORK_DIR + 'meta'
 TERMS_FILE = WORK_DIR + 'terms'
-PATHS_FILE = WORK_DIR + 'paths'
 
 
-TERM_TO_ID = dict() 
-ID_TO_DOC_TITLE = None
-DOC_PATH = dict()
+TERM_TO_ID = dict()
+DOCS_META = dict()
 
 
-with open(DOC_TITLES_FILE, 'r', encoding='utf-8') as fin:
-    ID_TO_DOC_TITLE = [line.strip('\n') for line in fin]
-    print('LOADED DOC TITLES')
+with open(DOCS_META_FILE, 'r', encoding='utf-8') as fin:
+    for line in fin:
+        id, link, title, path = line.strip('\n').split('\t')
+        id = int(id)
+        DOCS_META[id] = {
+            'link': link,
+            'title': title,
+            'path': path,
+        }
+    print('LOADED DOCS META')
 
 
 with open(TERMS_FILE, 'r', encoding='utf-8') as fin:
@@ -38,13 +44,6 @@ with open(TERMS_FILE, 'r', encoding='utf-8') as fin:
         TERM_TO_ID[line] = index
         index += 1
     print('LOADED TERMS LIST')
-
-
-with open(PATHS_FILE, 'r', encoding='utf-8') as fin:
-    for line in fin:
-        f, p = line.strip('\n').split(' ')
-        DOC_PATH[f] = os.path.join(p, f)
-    print('LOADED DOC PATHS')
 
 
 morph = pymorphy2.MorphAnalyzer()
@@ -196,10 +195,12 @@ def search():
         request_list = list(s for s in clear_text.split() if s not in '&|"' and not s.startswith('/'))
         res = [
             {
-                'title': ID_TO_DOC_TITLE[i],
-                'snippet': get_snippet(request_list, DOC_PATH[ID_TO_DOC_TITLE[i]], lambda s: remove_accents(s).lower())
+                'id': id,
+                'title': DOCS_META[id]['title'],
+                'link': DOCS_META[id]['link'],
+                'snippet': get_snippet(request_list, id, DOCS_META[id]['path'], lambda s: remove_accents(s).lower())
             } 
-            for i in l[p * RESPONSE_BLOCK_SIZE:(p + 1) * RESPONSE_BLOCK_SIZE]
+            for id in l[p * RESPONSE_BLOCK_SIZE:(p + 1) * RESPONSE_BLOCK_SIZE]
         ]
 
         return render_template(
@@ -210,13 +211,24 @@ def search():
             time=timing())
 
 
-@app.route('/archive/<title>')
-def archive(title):
-    if title not in DOC_PATH:
+@app.route('/archive/<id>')
+def archive(id):
+    try:
+        id = int(id)
+    except ValueError:
         return index()
 
-    with open(DOC_PATH[title], 'r', encoding='utf-8') as fin:
+    if id not in DOCS_META:
+        return index()
+
+
+    with open(DOCS_META[id]['path'], 'r', encoding='utf-8') as fin:
         text = fin.read()
+
+    text = re.search(
+        r'<doc\s+id="{0}"\s+url=".+?"\s+title=".+?">(.+?)<\/doc>'.format(id), 
+        text, 
+        flags=(re.M | re.S | re.U)).group(1)
 
     return text
 

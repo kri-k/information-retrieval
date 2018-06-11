@@ -62,8 +62,8 @@ ul.btn_horiz li{
         {% else %}
             <ol type="1">
             {% for val in results %}
-                <li><a href="https://ru.wikipedia.org/wiki/{{ val.title }}" color="black"> {{ val.title.replace('_', ' ') }} </a> </li>
-                <h6><a href="./archive/{{ val.title }}">Посмотреть сохраненный текст</a></h6>
+                <li><a href="{{ val.link }}" color="black"> {{ val.title }} </a> </li>
+                <h6><a href="./archive/{{ val.id }}">Посмотреть сохраненный текст</a></h6>
                 <div style="width: 70%">
                     <p>{{ val.snippet }}</p>
                 </div>

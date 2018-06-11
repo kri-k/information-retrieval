@@ -34,6 +34,10 @@ public:
     virtual void rollback() {}
 
     virtual float getRank() { return 0.0; }
+
+    virtual TID getExternalId() {
+        return INDEX.getExternalId(this->get());
+    }
 };
 
 
@@ -388,7 +392,7 @@ public:
 
     float getRank() override {
         float a = 0.05;
-        return a * log(1 + docIter->getRank()) + (1 - a) * log(1 + lastOkResult * ids.size() * 10);
+        return a * log(1 + docIter->getRank()) + (1 - a) * log(1 + lastOkResult * ids.size() * ids.size() * 10 / dist);
     }
 
     unsigned int ok(TID docId) {
@@ -466,8 +470,8 @@ private:
         set<pair<float, TID>> s;
 
         while (!iter->end()) {
-            if (used.count(iter->get()) == 0) {
-                s.emplace(iter->getRank(), iter->get());
+            if (used.count(iter->getExternalId()) == 0) {
+                s.emplace(iter->getRank(), iter->getExternalId());
                 if (s.size() > MAX_RES_NUM) s.erase(s.begin());
             }
             iter->next();

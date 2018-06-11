@@ -7,6 +7,8 @@
 #include <set>
 #include <vector>
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include "compressed_data_stream.h"
 
 using namespace std;
@@ -14,8 +16,8 @@ using namespace std;
 using TID = unsigned int;
 
 
-const string WORK_DIR("/home/forlabs/wiki_index_range/");
-const TID MAX_DOC_ID = 545386;
+const string WORK_DIR("/home/krik-standard/wiki_index/");
+const TID MAX_DOC_ID = 1476244;
 
 const size_t MAX_INDEX_FILES_NUM = 100;
 const size_t RECORDS_PER_FILE = 100000;
@@ -26,6 +28,7 @@ const size_t DOCS_PER_FILE = 10;
 const string TF_FILE_PATH = "/tf";
 const string TF_OFFSET_FILE_PATH = "/tf_offsets";
 const string POSITIONS_DIR_PATH = "/positions/";
+const string EXTERNAL_IDS_FILE_PATH = "/docs";
 
 
 class IndexRecord {
@@ -227,10 +230,12 @@ private:
     map<TID, size_t> usageCnt;
     map<TID, IndexRecord> records;
 
-    static const int MAX_DOC_TF_CACHE_SIZE = 50000;
+    static const int MAX_DOC_TF_CACHE_SIZE = 100000;
     vector<unsigned int> TFOffsets;
     map<TID, map<TID, unsigned int>> docTermTF;
     FILE *finTF;
+
+    vector<TID> externalIds;
 
     void loadDocId(unsigned int file) {
         FILE *fin = fopen(indexFiles[file].c_str(), "rb");
@@ -280,7 +285,6 @@ private:
 
         docTermTF[docId].insert(res.begin(), res.end());
     }
-
 public:
     Index() {
         recordsNum = 0;
@@ -295,8 +299,15 @@ public:
             fread(&tmp, sizeof(unsigned int), 1, fin);
             TFOffsets.push_back(tmp);
         }
+        fclose(fin);
 
         finTF = fopen((WORK_DIR + TF_FILE_PATH).c_str(), "rb");
+
+        ifstream finExternalIds(WORK_DIR + EXTERNAL_IDS_FILE_PATH);
+        string externalIdString;
+        while (finExternalIds >> externalIdString) {
+            externalIds.push_back(stoll(externalIdString));
+        }
     }
 
     ~Index() {
@@ -356,5 +367,9 @@ public:
             loadDocTF(docId);
         }
         return docTermTF[docId][termId];
+    }
+
+    TID getExternalId(TID internalId) {
+        return externalIds[internalId];
     }
 };

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-g++ --std=c++11 -O3 make_dictionary.cpp -o make_dictionary.out
+g++ --std=c++17 -march=native -O3 -o make_dictionary.out make_dictionary.cpp
 
 time ./make_dictionary.out ./dict.txt ~/wiki_tokens/*
 

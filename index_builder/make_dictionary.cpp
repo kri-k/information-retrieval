@@ -56,7 +56,9 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    vector<pair<unsigned int, string>> v(tokens.size());
+    vector<pair<unsigned int, string>> v;
+    v.reserve(tokens.size());
+
     for (auto &i : tokens) {
         v.emplace_back(i.second, i.first);
     }
