@@ -20,9 +20,13 @@ WORK_DIR = '/home/krik-standard/wiki_index/'
 DOCS_META_FILE = WORK_DIR + 'meta'
 TERMS_FILE = WORK_DIR + 'terms'
 
+TOKENS_DICT_FILE = WORK_DIR + 'dict'
+TOKEN_LEMS_DICT_FILE = WORK_DIR + 'lemms_dict'
+
 
 TERM_TO_ID = dict()
 DOCS_META = dict()
+TOKEN_TO_LEMM = dict()
 
 
 with open(DOCS_META_FILE, 'r', encoding='utf-8') as fin:
@@ -46,18 +50,36 @@ with open(TERMS_FILE, 'r', encoding='utf-8') as fin:
     print('LOADED TERMS LIST')
 
 
+with open(TOKENS_DICT_FILE, 'r') as fin_a:
+	fin_b = open(TOKEN_LEMS_DICT_FILE, 'r')
+	for token in fin_a:
+		lemm = fin_b.readline()
+		TOKEN_TO_LEMM[token.strip('\n')] = lemm.strip('\n')
+	fin_b.close()
+	print('LOADED TOKEN TO LEMM FILES')
+
+
 morph = pymorphy2.MorphAnalyzer()
-
-
-def lemmatize(word):
-    # word = remove_accents(morph.parse(word.strip('\n'))[0].normal_form).lower()
-    word = remove_accents(word.strip('\n')).lower();
-    return word
 
 
 def remove_accents(input_str):
     nfkd_form = unicodedata.normalize('NFKD', input_str)
     return u"".join([c for c in nfkd_form if not unicodedata.combining(c)])
+
+
+def lemmatize(word):
+    word = remove_accents(word.strip('\n')).lower();
+    _word = remove_accents(morph.parse(word)[0].normal_form).lower()
+    if len(_word): word = _word
+    return word
+
+
+def snippets_lemmatizer(word):
+	word = remove_accents(word.strip('\n')).lower()
+	if word in TOKEN_TO_LEMM:
+		return TOKEN_TO_LEMM[word]
+	else:
+		return lemmatize(word)
 
 
 def normalize(text, boolean, id=True):
@@ -193,12 +215,13 @@ def search():
             return render_template('search.html', error='Ничего не найдено ¯\_(ツ)_/¯', time=timing())
 
         request_list = list(s for s in clear_text.split() if s not in '&|"' and not s.startswith('/'))
+        print('getting snippets...')
         res = [
             {
                 'id': id,
                 'title': DOCS_META[id]['title'],
                 'link': DOCS_META[id]['link'],
-                'snippet': get_snippet(request_list, id, DOCS_META[id]['path'], lambda s: remove_accents(s).lower())
+                'snippet': get_snippet(request_list, id, DOCS_META[id]['path'], snippets_lemmatizer)
             } 
             for id in l[p * RESPONSE_BLOCK_SIZE:(p + 1) * RESPONSE_BLOCK_SIZE]
         ]

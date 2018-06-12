@@ -21,7 +21,6 @@ def get_snippet(query, id, text_path, lemmatize):
     for s in query:
         cnt[s] = 0
 
-
     text = []
     targets = []
     target_cnt = 0
@@ -142,5 +141,4 @@ def get_snippet(query, id, text_path, lemmatize):
 
 
 if __name__ == '__main__':
-    print(get_snippet(['автомобиль', 'гараж'], '/home/forlabs/wiki_articles/29/Криминальное_чтиво', lambda s: s.lower()))
     pass

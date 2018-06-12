@@ -14,4 +14,6 @@ file_in, file_out = sys.argv[1:]
 with open(file_out, 'w', encoding='utf-8') as fout:
 	with open(file_in, 'r', encoding='utf-8') as fin:
 		for line in fin:
-			print(remove_accents(morph.parse(line.strip('\n'))[0].normal_form), file=fout)
+			line = line.strip('\n')
+			term = remove_accents(morph.parse(line)[0].normal_form)
+			print(term if len(term) else line, file=fout)
